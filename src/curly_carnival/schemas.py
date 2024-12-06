@@ -1,7 +1,7 @@
 from torchvision.transforms import InterpolationMode
 from marshmallow import Schema, fields, validate, ValidationError, pre_load, post_load, validates_schema
 
-SCHEMA_TYPES = {'optimizer','lr_scheduler','transform','data','model','pruner','misc'}
+SCHEMA_TYPES = {'optimizer','lr_scheduler','transform','data','model','pruner','terminator','misc'}
 registered_schemas = {}
 registered_schemas_types = {}
 
@@ -198,12 +198,31 @@ class SearchSpaceConfigSchema(Schema):
     optim_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
     lr_sched_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=False)
 
+@register_schema('GANSearchSpace', 'misc')
+class GANSearchSpace(Schema):
+    general_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
+    g_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
+    d_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
+    optim_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
+    lr_sched_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=False)
+
 @register_schema('MedianPruner', 'pruner')
-class MedianPruner(Schema):
+class MedianPrunerSchema(Schema):
     n_startup_trials = fields.Integer(load_default=5)
     n_warmup_steps = fields.Integer(load_default=0)
     interval_steps = fields.Integer(load_default=1)
     n_min_trials = fields.Integer(load_default=1)
+
+@register_schema('PatientPruner', 'pruner')
+class PatientPrunerSchema(Schema):
+    patience = fields.Integer(required=True)
+    min_delta = fields.Float(load_default=0.0)
+
+@register_schema('PatientTerminator', 'terminator')
+class PatientTerminatorSchema(Schema):
+    n_warump_trials = fields.Integer(load_default=10)
+    patience = fields.Integer(load_default=10)
+    min_delta = fields.Float(load_default=0.0)
 
 def validate_config(config:dict, schema_name:str):
     if schema_name not in registered_schemas:
