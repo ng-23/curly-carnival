@@ -6,15 +6,14 @@ import json
 import optuna as op
 from plotly.io import write_image
 from curly_carnival import utils, objective, visualization
+from optuna.terminator import TerminatorCallback
 
 SUPPORTED_MODELS = {
     'vgg16','vgg19','alexnet','googlenet',
     'resnet18','efficientnet_b0','efficientnet_b1',
     'efficientnet_b2','efficientnet_b3','efficientnet_b4',
-    'maxvit_t','vit_b_16','resnet34','resnet50',
+    'maxvit_t','vit_b_16','resnet34','resnet50', "efficientnet_v2_s"
     }
-
-SUPPORTED_PRUNERS = {'median'}
 
 def get_args_parser():
     parser = argparse.ArgumentParser(
@@ -53,7 +52,7 @@ def get_args_parser():
     parser.add_argument(
         '--pruner', 
         type=str, 
-        choices=SUPPORTED_PRUNERS, 
+        choices=list(utils.SUPPORTED_PRUNERS.keys()), 
         default=None, 
         help='Pruning (early stopping) algorithm to use',
         )
@@ -152,6 +151,21 @@ def get_args_parser():
         )
     
     parser.add_argument(
+        '--terminator', 
+        type=str, 
+        choices=utils.SUPPORTED_TERMINATORS, 
+        default=None, 
+        help='Terminator to use for early stopping of entire study. By default, no terminator is used so all trials will be ran',
+        )
+    
+    parser.add_argument(
+        '--terminator-conf', 
+        type=str, 
+        default=None, 
+        help='Path to JSON configuration file for terminator',
+        )
+    
+    parser.add_argument(
         '--avg-method', 
         type=str, 
         choices=['micro','macro',], 
@@ -208,6 +222,7 @@ def main(args:argparse.Namespace):
         seed=args.seed,
         lr_sched_name=args.lr_scheduler,
         avg_method=args.avg_method,
+        output_dir=output_dir
         )
     
     pruner = None
@@ -216,13 +231,21 @@ def main(args:argparse.Namespace):
 
     print("Defining study...")
     study = op.create_study(
+        sampler=op.samplers.TPESampler(seed=args.seed),
         study_name=f"{args.model}-hyperparam-optimization", 
         direction='maximize', 
         pruner=pruner,
         )
     
     print("Beginning study...")
-    study.optimize(obj, n_trials=args.trials)
+    terminator = None
+    if args.terminator is not None:
+        terminator = utils.make_terminator(args.terminator, terminator_config=None if args.terminator_conf is None else json.load(open(args.terminator_conf)))
+    study.optimize(
+        obj, 
+        n_trials=args.trials,
+        callbacks=[TerminatorCallback(terminator)], # see https://optuna.readthedocs.io/en/stable/reference/generated/optuna.terminator.TerminatorCallback.html
+        ) 
 
     if args.plot_results:
         print("Plotting results...")
@@ -238,13 +261,13 @@ def main(args:argparse.Namespace):
 
     print("Saving best trial data...")
     best_trial = study.best_trial
-    trial_output_dir = os.path.join(output_dir, f"trial{best_trial.number}")
+    trial_output_dir = os.path.join(output_dir, f"best_trial{best_trial.number}")
     os.makedirs(trial_output_dir, exist_ok=True)
-    best_trial.user_attrs['train_metrics'].to_csv(os.path.join(trial_output_dir, 'train_metrics.csv'))
-    best_trial.user_attrs['val_metrics'].to_csv(os.path.join(trial_output_dir, 'val_metrics.csv'))
-    best_trial.user_attrs['test_metrics'].to_csv(os.path.join(trial_output_dir, 'test_metrics.csv'))
+    best_trial.user_attrs['train_metrics'].to_csv(os.path.join(trial_output_dir, 'train_metrics.csv'), index=False)
+    best_trial.user_attrs['val_metrics'].to_csv(os.path.join(trial_output_dir, 'val_metrics.csv'), index=False)
+    best_trial.user_attrs['test_metrics'].to_csv(os.path.join(trial_output_dir, 'test_metrics.csv'), index=False)
     with open(os.path.join(trial_output_dir, 'hyperparams.json'), 'w') as f:
-        json.dump(best_trial.params, f)
+        json.dump(best_trial.params, f, indent=4)
 
 if __name__ == '__main__':
     parser = get_args_parser()
