@@ -4,10 +4,12 @@ import torch.utils
 import torchvision
 import torch.utils.data
 import optuna as op
+from optuna import terminator
 import torch.optim as optim
 import torchvision.transforms as transforms
 import torchvision.transforms.v2 as v2transforms
 from curly_carnival.schemas import validate_config
+from curly_carnival import terminators
 from torch.utils.data import default_collate
 from torch.optim.swa_utils import AveragedModel, get_ema_multi_avg_fn
 
@@ -26,13 +28,18 @@ SUPPORTED_LR_SCHEDULERS = {
 
 SUPPORTED_PRUNERS = {
     'median':op.pruners.MedianPruner,
+    'patient':op.pruners.PatientPruner,
     }
+
+SUPPORTED_TERMINATORS = {
+    'patient':terminators.PatientTerminator,
+}
 
 SUPPORTED_COLLATE_FUNCS = {
     'cutmix':v2transforms.CutMix,
     'mixup':v2transforms.MixUp,
     }
-    
+        
 def encode_str_list(str_list:list[str]):
     return [s.encode('utf-8') for s in str_list]
 
@@ -95,7 +102,7 @@ def make_dataloader(dataset, dataloader_config:dict|None=None, collate_func=None
 
     return torch.utils.data.DataLoader(dataset, **dataloader_config, collate_fn=collate_func)
 
-def make_optimizer(model_params, optimizer:str, optimizer_config:dict|None=None):
+def make_optimizer(model_params, optimizer:str, optimizer_config:dict|None=None) -> optim.Optimizer:
     optimizer = optimizer.lower()
 
     if optimizer_config is None:
@@ -113,21 +120,7 @@ def make_optimizer(model_params, optimizer:str, optimizer_config:dict|None=None)
 
     return optim_class(model_params, **optimizer_config)
 
-def make_pruner(pruner:str, pruner_config:dict|None=None):
-    pruner = pruner.lower()
-
-    if pruner_config is None:
-        pruner_config = {}
-
-    if pruner not in SUPPORTED_PRUNERS:
-        raise Exception(f'Unknown/unsupported pruner {pruner}. Supported ones are currently {list(SUPPORTED_PRUNERS.keys())}')
-    pruner_class = SUPPORTED_PRUNERS[pruner]
-
-    pruner_config = validate_config(pruner_config, pruner_class.__name__)
-
-    return pruner_class(**pruner_config)
-
-def make_lr_scheduler(optimizer, lr_scheduler:str, lr_scheduler_config:dict):
+def make_lr_scheduler(optimizer, lr_scheduler:str, lr_scheduler_config:dict) -> optim.lr_scheduler.LRScheduler:
     lr_scheduler = lr_scheduler.lower()
 
     if lr_scheduler not in SUPPORTED_LR_SCHEDULERS:
@@ -145,6 +138,36 @@ def make_model_ema(model, model_ema_config:dict):
         model, 
         multi_avg_fn=get_ema_multi_avg_fn(decay=model_ema_config['decay']),
         )
+
+def make_pruner(pruner:str, pruner_config:dict|None=None) -> op.pruners.BasePruner:
+    pruner = pruner.lower()
+
+    if pruner_config is None:
+        pruner_config = {}
+
+    if pruner not in SUPPORTED_PRUNERS:
+        raise Exception(f'Unknown/unsupported pruner {pruner}. Supported ones are currently {list(SUPPORTED_PRUNERS.keys())}')
+    pruner_class = SUPPORTED_PRUNERS[pruner]
+
+    pruner_config = validate_config(pruner_config, pruner_class.__name__)
+
+    if pruner_class == op.pruners.PatientPruner:
+        pruner_config['wrapped_pruner'] = None # special case
+
+    return pruner_class(**pruner_config)
+
+def make_terminator(terminator:str, terminator_config:dict|None=None) -> terminator.BaseTerminator:
+    terminator = terminator.lower()
+
+    if terminator_config is None:
+        terminator_config = {}
+
+    if terminator not in SUPPORTED_TERMINATORS:
+        raise Exception(f'Unknown/unsupported terminator {terminator}. Supported ones are currently {list(SUPPORTED_TERMINATORS.keys())}')
+    
+    terminator_class = SUPPORTED_TERMINATORS[terminator]
+
+    return terminator_class(**terminator_config)
 
 def load_search_space(config:dict):
     return validate_config(config, 'SearchSpace')
