@@ -9,6 +9,8 @@ import torchvision
 import curly_carnival
 import time
 from tqdm import tqdm
+import os
+import json
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 
 class Objective():
@@ -33,6 +35,7 @@ class Objective():
             lr_sched_name:str='',
             avg_method='micro',
             obj_metric:str='acc',
+            output_dir='',
             ):
         
         self.model_name = model_name
@@ -47,6 +50,10 @@ class Objective():
         self.num_classes = len(dataset.classes)
         self.seed = seed
         self.avg_method = avg_method
+
+        self.output_dir = output_dir
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
 
         (self.train_ratio, self.val_ratio, self.test_ratio) = train_val_test_ratios
         self.train_ds, self.val_ds, self.test_ds = curly_carnival.utils.split_dataset(
@@ -122,6 +129,19 @@ class Objective():
                 metrics[metric] = self.METRIC_FUNCS[metric](preds, targets, average=self.avg_method, zero_division=0.0)
 
         return metrics
+    
+    def _save_trial(self, trial:op.Trial):
+        output_path = os.path.join(self.output_dir, f'trial{trial.number}')
+        os.makedirs(output_path, exist_ok=True)
+
+        # save train/val/test metrics as CSVs
+        trial.user_attrs['train_metrics'].to_csv(os.path.join(output_path, 'train_metrics.csv'), index=False)
+        trial.user_attrs['val_metrics'].to_csv(os.path.join(output_path, 'val_metrics.csv'), index=False)
+        trial.user_attrs['test_metrics'].to_csv(os.path.join(output_path, 'test_metrics.csv'), index=False)
+
+        # save hyperparams as JSON
+        with open(os.path.join(output_path, 'hyperparams.json'), 'w') as f:
+            json.dump(trial.params, f, indent=4)
 
     def _train_step(self, model:nn.Module, optimizer:optim.Optimizer, train_dl:torch.utils.data.DataLoader):
         model.train()
@@ -286,6 +306,11 @@ class Objective():
             # early stop if using a pruner
             if trial.should_prune():
                 print(f'Stopping trial {trial.number} early at epoch {epoch+1}/{self.epochs}')
+                trial.set_user_attr('train_metrics', epochs_train_metrics)
+                trial.set_user_attr('val_metrics', epochs_val_metrics)
+                trial.set_user_attr('test_metrics', self._test(model, test_dl))
+                self._save_trial(trial)
+                raise op.TrialPruned()
         
         trial.set_user_attr('train_metrics', epochs_train_metrics)
         trial.set_user_attr('val_metrics', epochs_val_metrics)
@@ -295,6 +320,7 @@ class Objective():
         
         print('-'*50)
         print(f'Finished trial {trial.number} with final test {self.obj_metric} of {test_obj_metric}')
+        self._save_trial(trial)
 
         return test_obj_metric
     
