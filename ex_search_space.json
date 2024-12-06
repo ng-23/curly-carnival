@@ -1,0 +1,6 @@
+{
+    "general_conf":{"lr": {"type": "float", "low": 1e-5, "high": 1e-1, "log": true}, "batch_size": {"type": "int", "low": 16, "high": 128, "step": 16}},
+    "model_conf": {"dropout": {"type": "float", "low": 0.1, "high": 0.5}},
+    "optim_conf": {"momentum": {"type": "float", "low": 0.0, "high": 0.99}},
+    "lr_sched_conf": {"step_size": {"type": "int", "low": 1, "high": 30}, "gamma": {"type": "float", "low": 1e-3, "high":0.1, "log": true}}
+}
