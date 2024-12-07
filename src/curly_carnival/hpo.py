@@ -12,7 +12,8 @@ SUPPORTED_MODELS = {
     'vgg16','vgg19','alexnet','googlenet',
     'resnet18','efficientnet_b0','efficientnet_b1',
     'efficientnet_b2','efficientnet_b3','efficientnet_b4',
-    'maxvit_t','vit_b_16','resnet34','resnet50', "efficientnet_v2_s"
+    'maxvit_t','vit_b_16','resnet34','resnet50', "efficientnet_v2_s",
+    "squeezenet1_0"
     }
 
 def get_args_parser():
@@ -172,6 +173,20 @@ def get_args_parser():
         default='micro', 
         help='Averaging method to use when calculating metrics',
         )
+    
+    parser.add_argument(
+        '--obj-metric', 
+        type=str, 
+        choices=objective.Objective.METRICS, 
+        default='acc', 
+        help='Objective metric to optimize',
+        )
+    
+    parser.add_argument(
+        '--minimize', 
+        action='store_true', 
+        help='If specified, minimize the objective metrics instead of maximizing it',
+        )
             
     parser.add_argument(
         '--plot-results', 
@@ -222,6 +237,7 @@ def main(args:argparse.Namespace):
         seed=args.seed,
         lr_sched_name=args.lr_scheduler,
         avg_method=args.avg_method,
+        obj_metric=args.obj_metric,
         output_dir=output_dir
         )
     
@@ -233,7 +249,7 @@ def main(args:argparse.Namespace):
     study = op.create_study(
         sampler=op.samplers.TPESampler(seed=args.seed),
         study_name=f"{args.model}-hyperparam-optimization", 
-        direction='maximize', 
+        direction='minimize' if args.minimize else 'maximize', 
         pruner=pruner,
         )
     
