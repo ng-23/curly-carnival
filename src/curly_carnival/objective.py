@@ -14,7 +14,7 @@ import json
 from sklearn.metrics import accuracy_score, f1_score, recall_score, precision_score
 
 class Objective():
-    METRICS = {'acc','recall','precision','f1'}
+    METRICS = {'acc','recall','precision','f1','loss'}
     METRIC_FUNCS = {'acc':accuracy_score, 'recall':recall_score, 'precision':precision_score, 'f1':f1_score}
 
     def __init__(
@@ -120,6 +120,7 @@ class Objective():
 
     def _calc_metrics(self, preds:np.ndarray, targets:np.ndarray):
         metrics = {metric:0.0 for metric in self.METRICS}
+        del metrics['loss']
 
         for metric in metrics:
             if metric == 'acc':
@@ -147,9 +148,8 @@ class Objective():
         model.train()
 
         step_metrics = {metric:[] for metric in self.METRICS}
-        step_metrics['loss'] = []
 
-        for i, (samples, targets) in tqdm(enumerate(train_dl), desc='Train Step'):
+        for i, (samples, targets) in tqdm(enumerate(train_dl), desc='Training Step'):
             samples, targets = samples.to(self.device), targets.to(self.device)
 
             output = model(samples)
@@ -186,14 +186,13 @@ class Objective():
 
         return pd.DataFrame.from_dict(step_metrics)
     
-    def _val_step(self, model:nn.Module, val_dl:torch.utils.data.DataLoader):
+    def _val(self, model:nn.Module, val_dl:torch.utils.data.DataLoader):
         model.eval()
 
         step_metrics = {metric:[] for metric in self.METRICS}
-        step_metrics['loss'] = []
 
         with torch.inference_mode():
-            for i, (samples, targets) in tqdm(enumerate(val_dl), desc='Validation Step'):
+            for i, (samples, targets) in tqdm(enumerate(val_dl), desc='Validation'):
                 samples, targets = samples.to(self.device), targets.to(self.device)
 
                 output = model(samples)
@@ -215,6 +214,7 @@ class Objective():
         model.eval()
 
         test_metrics = {metric:[] for metric in self.METRICS}
+        del test_metrics['loss']
 
         with torch.inference_mode():
             for i, (samples, targets) in enumerate(test_dl):
@@ -292,7 +292,7 @@ class Objective():
 
             # perform a val step
             start_time = time.time()
-            val_metrics = self._val_step(model, val_dl)
+            val_metrics = self._val(model, val_dl)
             print(f'Total val step time: {time.time()-start_time} seconds')
             print(f'Validation metrics: \n{val_metrics.to_string(index=False)}')  
 
@@ -315,12 +315,10 @@ class Objective():
         trial.set_user_attr('train_metrics', epochs_train_metrics)
         trial.set_user_attr('val_metrics', epochs_val_metrics)
         trial.set_user_attr('test_metrics', self._test(model, test_dl))
-
-        test_obj_metric = epochs_val_metrics[self.obj_metric].iloc[0]
         
         print('-'*50)
-        print(f'Finished trial {trial.number} with final test {self.obj_metric} of {test_obj_metric}')
+        print(f'Finished trial {trial.number}:\n{trial.user_attrs['test_metrics'].to_string(index=False)}')
         self._save_trial(trial)
-
-        return test_obj_metric
+        
+        return epochs_val_metrics[self.obj_metric].iloc[0]
     
