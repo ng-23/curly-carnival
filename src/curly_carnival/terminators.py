@@ -21,7 +21,8 @@ class PatientTerminator(terminator.BaseTerminator):
             else:
                 self.curr_patience = self.patience
             if self.curr_patience == 0:
-                return False
-            return True
+                return True
+            return False
         else:
             return False
+        
