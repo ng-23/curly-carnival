@@ -2,7 +2,7 @@
 name = "curly-carnival"
 version = "0.1.0"
 description = "Add a short description here"
-authors = [{name = "bziadeh@millennial.software", email = "bziadeh@millennial.software"}]
+authors = [{name = "ng-23", email = "23grattan@gmail.com"}]
 requires-python = ">= 3.11"
 dependencies = []
 
@@ -17,6 +17,7 @@ platforms = ["linux-64"]
 [tool.pixi.pypi-dependencies]
 curly-carnival = { path = ".", editable = true }
 kaleido = "<=0.2.1.post1"
+torcheval = ">=0.0.7"
 
 [tool.pixi.tasks]
 
