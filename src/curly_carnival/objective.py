@@ -320,5 +320,5 @@ class Objective():
         print(f'Finished trial {trial.number}:\n{trial.user_attrs['test_metrics'].to_string(index=False)}')
         self._save_trial(trial)
         
-        return epochs_val_metrics[self.obj_metric].iloc[0]
+        return epochs_val_metrics[self.obj_metric].iloc[-1]
     

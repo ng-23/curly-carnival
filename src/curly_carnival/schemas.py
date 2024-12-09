@@ -198,14 +198,6 @@ class SearchSpaceConfigSchema(Schema):
     optim_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
     lr_sched_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=False)
 
-@register_schema('GANSearchSpace', 'misc')
-class GANSearchSpace(Schema):
-    general_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
-    g_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
-    d_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
-    optim_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=True)
-    lr_sched_conf = fields.Dict(keys=fields.String(required=True), values=fields.Nested(NumericSearchSpaceSchema), required=False)
-
 @register_schema('MedianPruner', 'pruner')
 class MedianPrunerSchema(Schema):
     n_startup_trials = fields.Integer(load_default=5)

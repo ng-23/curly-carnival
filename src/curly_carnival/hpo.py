@@ -12,8 +12,8 @@ SUPPORTED_MODELS = {
     'vgg16','vgg19','alexnet','googlenet',
     'resnet18','efficientnet_b0','efficientnet_b1',
     'efficientnet_b2','efficientnet_b3','efficientnet_b4',
-    'maxvit_t','vit_b_16','resnet34','resnet50', "efficientnet_v2_s",
-    "squeezenet1_0"
+    'maxvit_t','vit_b_16','resnet34','resnet50',"efficientnet_v2_s",
+    "squeezenet1_0",'densenet121'
     }
 
 def get_args_parser():
